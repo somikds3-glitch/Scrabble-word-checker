@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scrabble Word Checker</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    :root { --radius: 12px; --pad: 14px; }
+    html, body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; background:#0f1226; color:#eef0ff; }
+    .wrap { max-width:640px; margin:6vh auto; padding:0 16px; }
+    .card { background:#181b3a; border:1px solid #2a2f63; border-radius: var(--radius); padding: clamp(16px, 3vw, 28px); box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+    h1 { font-size: clamp(22px, 3vw, 28px); margin:0 0 12px; letter-spacing:.3px; }
+    p.sub { margin:.25rem 0 1rem; color:#b7bcff; }
+    form { display:flex; gap:10px; flex-wrap:wrap; }
+    input[type="text"] { flex:1 1 280px; padding: var(--pad); border-radius: var(--radius); border:1px solid #2a2f63; background:#0f1230; color:#eef0ff; outline:none; font-size:16px; }
+    input[type="text"]::placeholder { color:#8b90d6; }
+    select, button { padding: var(--pad); border-radius: var(--radius); border:1px solid #2a2f63; background:#2a2f63; color:#eef0ff; font-size:14px; }
+    button { cursor:pointer; }
+    .hint { font-size: 12px; color:#9aa0ff; margin-top:8px; }
+    .result { margin-top:18px; padding:14px; border-radius: var(--radius); border:1px solid #2a2f63; background:#121536; display:none; }
+    .result.ok { border-color:#3aa76d; background:#0f1c17; }
+    .result.no { border-color:#e55353; background:#2b1216; }
+    .meta { margin-top:8px; font-size:12px; color:#aab1ff; }
+    .small { font-size:12px; color:#9aa0ff; margin-top:12px; }
+    .spinner { display:none; margin-left:8px; width:16px; height:16px; border-radius:50%; border:2px solid #8b90d6; border-top-color:transparent; animation:spin .9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .row { display:flex; align-items:center; gap:8px; }
+    .link { color:#cfd3ff; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Scrabble Word Checker</h1>
+      <p class="sub">Type a word. Pick a dictionary file. I’ll tell you if it’s playable.</p>
+
+      <form id="checker">
+        <input id="word" type="text" inputmode="latin" autocomplete="off" placeholder="e.g., gapy, tod" maxlength="15" required />
+        <select id="dict">
+          <option value="lists/demo.txt">Demo List (sample)</option>
+          <option value="lists/nwl.txt">NWL (upload your file)</option>
+          <option value="lists/csw.txt">CSW (upload your file)</option>
+        </select>
+        <button id="go" type="submit">Check</button>
+        <div class="spinner" id="spin"></div>
+      </form>
+
+      <div class="hint">Tip: word lists are simple text files, one word per line, uppercase or lowercase.</div>
+
+      <div id="out" class="result"></div>
+      <div id="meta" class="meta"></div>
+
+      <div class="small">
+        ⚠️ Legal note: Official Scrabble word lists (NWL/CSW) are proprietary. Don’t publish them unless you have rights.  
+        You can still use this site privately by placing the files in <code>/lists</code> within your repo.
+      </div>
+      <div class="small">
+        Want speed? The list is cached in your browser for offline use. To refresh after updating a file, change the dropdown once.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('checker');
+    const input = document.getElementById('word');
+    const dictSel = document.getElementById('dict');
+    const out = document.getElementById('out');
+    const spin = document.getElementById('spin');
+    const meta = document.getElementById('meta');
+
+    const cacheKey = (url) => `wordset:v1:${url}`;
+
+    async function loadWordSet(url) {
+      const ck = cacheKey(url);
+      const cached = localStorage.getItem(ck);
+      if (cached) return new Set(JSON.parse(cached));
+
+      spin.style.display = 'inline-block';
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Failed to load word list: ${res.status}`);
+      const text = await res.text();
+      const words = text.split(/\r?\n/).map(w => w.trim()).filter(Boolean);
+      const set = new Set(words.map(w => w.toLowerCase()));
+      localStorage.setItem(ck, JSON.stringify(Array.from(set)));
+      spin.style.display = 'none';
+      return set;
+    }
+
+    async function check(word, url) {
+      const clean = (word || '').trim().toLowerCase();
+      if (!/^[a-z]+$/.test(clean)) {
+        show(false, 'Enter letters A–Z only (no spaces, hyphens, or accents).');
+        return;
+      }
+      try {
+        const set = await loadWordSet(url);
+        const ok = set.has(clean);
+        show(ok, ok ? `"${clean.toUpperCase()}" is playable.` : `"${clean.toUpperCase()}" is NOT in this list.`);
+        meta.textContent = `Dictionary file: ${url} • Words loaded: ${set.size.toLocaleString()}`;
+      } catch (e) {
+        show(false, `Couldn’t load the dictionary file. (${e.message})`);
+        meta.textContent = '';
+      }
+    }
+
+    function show(ok, msg) {
+      out.style.display = 'block';
+      out.className = 'result ' + (ok ? 'ok' : 'no');
+      out.textContent = msg;
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      check(input.value, dictSel.value);
+    });
+
+    dictSel.addEventListener('change', () => {
+      // force reload next time by clearing cache for this list
+      localStorage.removeItem(cacheKey(dictSel.value));
+      meta.textContent = '';
+      out.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
