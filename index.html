@@ -1,255 +1,63 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Somik’s Scrabble Word Panel — Strict No-Key</title>
+
+<!-- Connection warmups -->
+<link rel="preconnect" href="https://r.jina.ai" crossorigin>
+<link rel="dns-prefetch" href="//r.jina.ai">
+<link rel="dns-prefetch" href="//www.collinsdictionary.com">
+<link rel="dns-prefetch" href="//scrabble.merriam.com">
+<link rel="dns-prefetch" href="//www.merriam-webster.com">
+
 <style>
   :root{--bg:#0f1226;--card:#181b3a;--ink:#eef0ff;--muted:#9aa0ff;--ok:#34c38f;--no:#ff6b6b;--line:#2a2f63}
-  *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:radial-gradient(1200px 700px at 70% -10%,#1a2050,#0f1226);color:var(--ink)}
-  .wrap{max-width:760px;margin:6vh auto;padding:0 16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
-  h1{margin:0 0 8px} .sub{color:#c6caff;margin:0 0 14px}
-  form{display:flex;gap:8px;flex-wrap:wrap}
-  input{flex:1 1 260px;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0f1230;color:var(--ink);font-size:16px}
-  button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#2a2f63;color:var(--ink);cursor:pointer}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
-  .panel{border:1px dashed var(--line);border-radius:10px;padding:12px;min-height:130px;position:relative}
-  .tag{position:absolute;top:8px;right:8px;color:var(--muted);font-size:12px}
-  .status{font-size:18px;margin-top:6px}
-  .def{margin-top:8px;color:#d7dbff;line-height:1.35}
-  .mini{color:var(--muted);font-size:12px;margin-top:8px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:radial-gradient(1200px 700px at 70% -10%,#1a2050,#0f1226);color:var(--ink)}
+  .wrap{max-width:820px;margin:6vh auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 8px 26px rgba(0,0,0,.35)}
+  h1{margin:0 0 6px;font-size:clamp(24px,4vw,34px)}
+  .sub{margin:0 0 14px;color:#c6caff}
+  form{display:flex;gap:10px;flex-wrap:wrap}
+  input{flex:1 1 360px;padding:14px;border-radius:12px;border:1px solid var(--line);background:#0f1230;color:var(--ink);font-size:16px}
+  button{padding:12px 16px;border-radius:12px;border:1px solid var(--line);background:#2a2f63;color:var(--ink);font-weight:600;cursor:pointer}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .panel{border:1px dashed var(--line);border-radius:12px;padding:12px;min-height:120px;position:relative}
+  .tag{position:absolute;top:8px;right:10px;font-size:12px;color:#9aa0ff}
+  .status{font-size:18px;margin-top:4px}
   .ok{color:var(--ok)} .no{color:var(--no)}
+  .mini{color:#9aa0ff;font-size:12px;margin-top:6px}
+  .def{margin-top:8px;color:#d7dbff;line-height:1.35}
   a{color:#cfd3ff}
-  .src{display:block;margin-top:6px;font-size:12px}
+  .diag{margin-top:12px;background:#10133a;border:1px solid #2a2f63;border-radius:12px;padding:10px 12px}
+  .diag pre{white-space:pre-wrap;word-break:break-word;margin:8px 0 0;display:none;color:#cfd3ff}
+  label.toggle{display:flex;gap:8px;align-items:center;font-size:12px;color:#cfd3ff}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
     <h1>Somik’s Scrabble Word Panel</h1>
-    <p class="sub">One word. No keys. <b>Playable</b> only when Collins explicitly confirms. Meanings pulled from Collins & Merriam with source links.</p>
+    <p class="sub">One word at a time. <b>Playable</b> only when Collins explicitly confirms. Meanings from Collins & Merriam with source links. No keys. No lists.</p>
 
-    <form id="f">
-      <input id="w" type="text" placeholder="Type a word (e.g., gapy, tod)" maxlength="15" autocomplete="off" />
-      <button type="submit">Check</button>
+    <form id="form" novalidate>
+      <input id="word" type="text" placeholder="Type a word (e.g., gapy, tod, qi, za)" maxlength="15" autocomplete="off" aria-label="Word to check" required />
+      <button type="submit" aria-label="Check word">Check</button>
     </form>
 
-    <div class="row">
+    <div class="grid">
       <div class="panel">
-        <div class="tag">CSW legality (Collins)</div>
+        <div class="tag">CSW legality (Collins Scrabble checker)</div>
         <div id="cswStatus" class="status">—</div>
         <div id="cswNote" class="mini"></div>
       </div>
       <div class="panel">
-        <div class="tag">NWL info (Merriam)</div>
+        <div class="tag">NWL info (Merriam Scrabble finder)</div>
         <div id="nwlStatus" class="status">—</div>
         <div id="nwlNote" class="mini"></div>
       </div>
     </div>
 
-    <div class="row" style="margin-top:12px">
-      <div class="panel">
-        <div class="tag">Meaning (Collins)</div>
-        <div id="collinsDef" class="def">—</div>
-        <a id="collinsLink" class="src" href="#" target="_blank" rel="noopener"></a>
-      </div>
-      <div class="panel">
-        <div class="tag">Meaning (Merriam-Webster)</div>
-        <div id="mwDef" class="def">—</div>
-        <a id="mwLink" class="src" href="#" target="_blank" rel="noopener"></a>
-      </div>
-    </div>
-
-    <div class="mini" style="margin-top:12px">
-      Confidence: <b>High</b> only when the Collins Scrabble checker literally says “is a valid Scrabble word.” Definitions are quoted snippets; click the source to read the full entry.
-    </div>
-  </div>
-</div>
-
-<script>
-const form = document.getElementById('f');
-const wIn = document.getElementById('w');
-
-const cswStatus = document.getElementById('cswStatus');
-const cswNote   = document.getElementById('cswNote');
-const nwlStatus = document.getElementById('nwlStatus');
-const nwlNote   = document.getElementById('nwlNote');
-
-const collinsDef = document.getElementById('collinsDef');
-const collinsLink = document.getElementById('collinsLink');
-const mwDef = document.getElementById('mwDef');
-const mwLink = document.getElementById('mwLink');
-
-// Minimal profanity/abuse guard so nothing nasty shows as “playable”
-const BLOCKLIST = new Set(["bhosdike","motherfucker","cunt","fucker","fuck"]);
-
-function jina(url){ return `https://r.jina.ai/http/${url.replace(/^https?:\/\//,'')}`; }
-
-function sanitize(s){
-  const v = (s||'').trim();
-  if (!/^[A-Za-z]{2,15}$/.test(v)) return null; // Scrabble tile length; letters only
-  return v.toLowerCase();
-}
-
-async function fetchText(url, timeout=6000){
-  const ctl = new AbortController();
-  const id = setTimeout(()=>ctl.abort(), timeout);
-  try {
-    const r = await fetch(jina(url), { signal: ctl.signal, cache: 'no-store' });
-    clearTimeout(id);
-    if (!r.ok) throw new Error('Fetch failed: '+r.status);
-    return await r.text();
-  } catch (e){
-    clearTimeout(id);
-    throw e;
-  }
-}
-
-/* ---- Strict legality: Collins Scrabble checker only ---- */
-function parseCollinsPlayable(text){
-  if (/is a valid scrabble word/i.test(text)) return 'ok';
-  if (/is not a valid scrabble word/i.test(text) || /not found/i.test(text) || /no results/i.test(text)) return 'no';
-  return 'unknown';
-}
-
-/* ---- Definition extractors (snippets, not gospel) ---- */
-function firstCleanLine(lines, startIndex=0, maxJump=12){
-  for (let i=startIndex; i<Math.min(lines.length, startIndex+maxJump); i++){
-    const L = lines[i].trim();
-    if (!L) continue;
-    // Skip headings & nav junk
-    if (/^see also|examples|word forms|copyright|scrabble/i.test(L)) continue;
-    // Prefer a short, sentence-like line
-    if (/[a-z]/i.test(L) && L.split(' ').length >= 2 && L.length <= 180) return L;
-  }
-  return '';
-}
-
-function extractCollinsDefinition(text){
-  const lines = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-  // Try to anchor near “is a valid scrabble word” if present
-  let idx = lines.findIndex(l=>/is a valid scrabble word/i.test(l));
-  if (idx >= 0){
-    const s = firstCleanLine(lines, idx+1, 10);
-    if (s) return s;
-  }
-  // Fallback: general Collins dictionary page patterns (definitions near top under POS)
-  idx = lines.findIndex(l=>/^definition$/i.test(l));
-  if (idx >= 0){
-    const s = firstCleanLine(lines, idx+1, 10);
-    if (s) return s;
-  }
-  // Last resort: first short, meaningful line
-  return firstCleanLine(lines, 0, 30);
-}
-
-function extractMWDefinition(text){
-  const lines = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-  // Look for “Definition of <word>”
-  let idx = lines.findIndex(l=>/^definition of\b/i.test(l));
-  if (idx >= 0){
-    const s = firstCleanLine(lines, idx+1, 12);
-    if (s) return s;
-  }
-  // Common MW pattern: part of speech followed by brief gloss
-  idx = lines.findIndex(l=>/^(noun|verb|adjective|adverb|interjection|preposition|pronoun)\b/i.test(l));
-  if (idx >= 0){
-    const s = firstCleanLine(lines, idx+1, 10);
-    if (s) return s;
-  }
-  // Fallback: first short meaningful line
-  return firstCleanLine(lines, 0, 30);
-}
-
-/* ---- Main flow ---- */
-form.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-
-  cswStatus.textContent='…'; cswStatus.className='status';
-  cswNote.textContent='';
-  nwlStatus.textContent='…'; nwlStatus.className='status';
-  nwlNote.textContent='';
-
-  collinsDef.textContent='—'; collinsLink.textContent=''; collinsLink.removeAttribute('href');
-  mwDef.textContent='—'; mwLink.textContent=''; mwLink.removeAttribute('href');
-
-  const raw = wIn.value;
-  const w = sanitize(raw);
-  if (!w){
-    cswStatus.textContent = 'Letters A–Z only (2–15 chars)';
-    nwlStatus.textContent = '';
-    return;
-  }
-  if (BLOCKLIST.has(w)){
-    cswStatus.textContent = 'Blocked by policy';
-    nwlStatus.textContent = '';
-    return;
-  }
-
-  const srcCSW = `https://www.collinsdictionary.com/scrabble/scrabble-word-checker/${w}`;
-  const srcCollinsDict = `https://www.collinsdictionary.com/dictionary/english/${w}`;
-  const srcMW = `https://www.merriam-webster.com/dictionary/${w}`;
-  const srcNWL = `https://scrabble.merriam.com/finder/${w}`; // info-only
-
-  // Legality: Collins Scrabble checker (strict)
-  try {
-    const t = await fetchText(srcCSW, 6000);
-    const state = parseCollinsPlayable(t);
-    cswStatus.className = 'status ' + (state==='ok'?'ok':state==='no'?'no':'');
-    cswStatus.textContent = state==='ok'?'Playable ✓':state==='no'?'Not allowed ✕':'Unknown';
-    cswNote.textContent = state==='ok' ? 'High confidence (explicitly confirmed by Collins).'
-                        : state==='no' ? 'High confidence (explicitly rejected by Collins).'
-                        : 'Collins did not explicitly confirm.';
-  } catch (e1){
-    cswStatus.textContent = 'Collins check failed';
-    cswNote.textContent = String(e1).slice(0,140);
-  }
-
-  // Meanings: Collins dictionary (primary)
-  try {
-    const t2 = await fetchText(srcCollinsDict, 6000);
-    const def = extractCollinsDefinition(t2);
-    collinsDef.textContent = def || 'No short snippet found. Open source.';
-    collinsLink.href = srcCollinsDict;
-    collinsLink.textContent = `Open Collins dictionary for “${w}”`;
-  } catch {
-    collinsDef.textContent = 'Could not fetch Collins dictionary page.';
-    collinsLink.href = srcCollinsDict;
-    collinsLink.textContent = `Try Collins dictionary for “${w}”`;
-  }
-
-  // Meanings: Merriam-Webster dictionary (secondary)
-  try {
-    const t3 = await fetchText(srcMW, 6000);
-    const def = extractMWDefinition(t3);
-    mwDef.textContent = def || 'No short snippet found. Open source.';
-    mwLink.href = srcMW;
-    mwLink.textContent = `Open Merriam-Webster for “${w}”`;
-  } catch {
-    mwDef.textContent = 'Could not fetch Merriam-Webster page.';
-    mwLink.href = srcMW;
-    mwLink.textContent = `Try Merriam-Webster for “${w}”`;
-  }
-
-  // Merriam Scrabble finder: only to show a “no” if explicit (we do not use it to say “ok”)
-  try {
-    const t4 = await fetchText(srcNWL, 6000);
-    const nwlNo = /no results/i.test(t4) || /not a playable word/i.test(t4);
-    if (nwlNo){
-      nwlStatus.className = 'status no';
-      nwlStatus.textContent = 'Not allowed ✕';
-      nwlNote.textContent = 'Merriam shows no results / not playable.';
-    } else {
-      nwlStatus.className = 'status';
-      nwlStatus.textContent = 'Unknown';
-      nwlNote.textContent = 'Merriam finder does not explicitly confirm.';
-    }
-  } catch (e4){
-    nwlStatus.textContent = 'Merriam check failed';
-    nwlNote.textContent = String(e4).slice(0,140);
-  }
-});
-</script>
-</body>
-</html>
+    <div class="grid" style="margin-top:12
