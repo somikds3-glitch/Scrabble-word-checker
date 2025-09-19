@@ -1,254 +1,194 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Somik’s Scrabble Word Panel</title>
-
-<!-- Warm up connections -->
-<link rel="preconnect" href="https://r.jina.ai" crossorigin>
-<link rel="dns-prefetch" href="//r.jina.ai">
-<link rel="dns-prefetch" href="//scrabble.merriam.com">
-<link rel="dns-prefetch" href="//www.collinsdictionary.com">
-
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Somik’s Scrabble Word Panel — Strict No-Key</title>
 <style>
-  :root { --bg:#0f1226; --card:#181b3a; --ink:#eef0ff; --muted:#9aa0ff; --ok:#34c38f; --no:#ff6b6b; --line:#2a2f63; }
-  * { box-sizing: border-box }
-  body { margin:0; font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial; background: radial-gradient(1200px 700px at 70% -10%, #1a2050, #0f1226); color:var(--ink); }
-  .wrap { max-width:720px; margin:7vh auto; padding:0 16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,.35) }
-  h1 { margin:0 0 6px; font-size:clamp(24px,4vw,34px); letter-spacing:.3px }
-  .sub { margin:0 0 18px; color:#c6caff }
-  form { display:flex; gap:10px; flex-wrap:wrap }
-  input { flex:1 1 320px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:#0f1230; color:#eef0ff; font-size:16px; outline:none }
-  input::placeholder { color:#8b90d6 }
-  button { padding:14px 18px; border-radius:12px; border:1px solid var(--line); background:#2a2f63; color:#eef0ff; font-weight:600; cursor:pointer }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px }
-  .panel { border:1px dashed var(--line); border-radius:12px; padding:14px; min-height:92px; position:relative; overflow:hidden }
-  .tag { position:absolute; top:8px; right:10px; font-size:12px; color:var(--muted) }
-  .status { font-size:18px; margin-top:2px }
-  .ok { color:var(--ok) } .no { color:var(--no) }
-  .blink { animation: blink .9s ease-in-out 2 }
-  @keyframes blink { 50% { opacity:.35 } }
-  .shake { animation: s .3s linear 2 } @keyframes s { 25%{transform:translateX(3px)} 75%{transform:translateX(-3px)} }
-  .mini { color:var(--muted); font-size:12px; margin-top:10px }
-  .footer { margin-top:14px; color:#b7bcff; font-size:12px }
-  .links { margin-top:6px; display:flex; gap:10px; flex-wrap:wrap }
-  a { color:#cfd3ff }
-  canvas { position:fixed; inset:0; pointer-events:none; }
+  :root{--bg:#0f1226;--card:#181b3a;--ink:#eef0ff;--muted:#9aa0ff;--ok:#34c38f;--no:#ff6b6b;--line:#2a2f63}
+  *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;background:radial-gradient(1200px 700px at 70% -10%,#1a2050,#0f1226);color:var(--ink)}
+  .wrap{max-width:720px;margin:6vh auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  h1{margin:0 0 8px} .sub{color:#c6caff;margin:0 0 14px}
+  form{display:flex;gap:8px;flex-wrap:wrap}
+  input{flex:1 1 260px;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0f1230;color:var(--ink);font-size:16px}
+  button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#2a2f63;color:var(--ink);cursor:pointer}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .panel{border:1px dashed var(--line);border-radius:10px;padding:12px;min-height:110px;position:relative}
+  .tag{position:absolute;top:8px;right:8px;color:var(--muted);font-size:12px}
+  .status{font-size:18px;margin-top:6px}
+  .def{margin-top:8px;color:#d7dbff}
+  .mini{color:var(--muted);font-size:12px;margin-top:8px}
+  a{color:#cfd3ff}
+  .ok{color:var(--ok)} .no{color:var(--no)}
 </style>
 </head>
 <body>
-<canvas id="fx"></canvas>
-
 <div class="wrap">
   <div class="card">
     <h1>Somik’s Scrabble Word Panel</h1>
-    <p class="sub">Type a word. I’ll check <b>CSW</b> fast, confirm with <b>NWL</b> in the background—no wordlists.</p>
+    <p class="sub">Enter one word. No list, no API key. “Playable” only when Collins explicitly says so. Definitions from Collins & Merriam if found.</p>
 
-    <form id="form">
-      <input id="word" type="text" placeholder="e.g., gapy, tod" maxlength="15" autocomplete="off" required />
+    <form id="f">
+      <input id="w" type="text" placeholder="Type a word (e.g., gapy, tod)" maxlength="15" autocomplete="off" />
       <button type="submit">Check</button>
     </form>
 
-    <div class="grid">
-      <div class="panel" id="cswBox">
-        <div class="tag">CSW (Collins, Intl) — fast</div>
-        <div class="status" id="cswStatus">Waiting…</div>
-        <div class="mini" id="cswNote"></div>
+    <div class="row">
+      <div class="panel">
+        <div class="tag">CSW (Collins)</div>
+        <div id="cswStatus" class="status">—</div>
+        <div id="cswDef" class="def">—</div>
+        <div id="cswNote" class="mini"></div>
       </div>
-      <div class="panel" id="nwlBox">
-        <div class="tag">NWL (US/Canada) — confirm</div>
-        <div class="status" id="nwlStatus">Idle</div>
-        <div class="mini" id="nwlNote"></div>
+      <div class="panel">
+        <div class="tag">NWL (Merriam) — info</div>
+        <div id="nwlStatus" class="status">—</div>
+        <div id="nwlDef" class="def">—</div>
+        <div id="nwlNote" class="mini"></div>
       </div>
     </div>
 
-    <div class="footer">
-      Heads-up: Official lists are licensed. This tool pings the public Collins (CSW) and Merriam (NWL) via a read-only mirror to avoid CORS. If something looks off, open the source links and double-check.
-      <div class="links" id="links"></div>
-    </div>
+    <div class="mini" style="margin-top:12px">Confidence: High = Collins explicitly confirmed; Unknown = not confirmed; Always shows source links for manual verification.</div>
+    <div class="mini" id="links" style="margin-top:6px"></div>
   </div>
 </div>
 
 <script>
-/* ---------- Perf helpers ---------- */
-const cacheKey = (w) => `verdict:v2:${w}`; // bump version to invalidate old caches
-const cacheTTLms = 1000 * 60 * 60 * 24 * 7; // 7 days
+/* Strict no-key checker:
+   - Only mark csw ok when Collins text contains "is a valid scrabble word"
+   - Merriam is only informational and can mark "not allowed" if it says "No results" or similar.
+   - Uses r.jina.ai mirror to avoid CORS (read-only).
+   - Small BLOCKLIST to prevent obscene words from being shown as playable.
+*/
 
-function getCached(w){
-  try {
-    const raw = localStorage.getItem(cacheKey(w));
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj || !obj.t || (Date.now() - obj.t) > cacheTTLms) return null;
-    return obj;
-  } catch { return null; }
-}
-function setCached(w, data){
-  try { localStorage.setItem(cacheKey(w), JSON.stringify({ ...data, t: Date.now() })); } catch {}
-}
-
-/* ---------- UI elts ---------- */
-const wordEl = document.getElementById('word');
-const formEl = document.getElementById('form');
-const nwlStatus = document.getElementById('nwlStatus');
+const form = document.getElementById('f');
+const wIn = document.getElementById('w');
 const cswStatus = document.getElementById('cswStatus');
-const nwlNote = document.getElementById('nwlNote');
+const cswDef = document.getElementById('cswDef');
 const cswNote = document.getElementById('cswNote');
-const links = document.getElementById('links');
-const fx = document.getElementById('fx');
-const ctx = fx.getContext('2d');
+const nwlStatus = document.getElementById('nwlStatus');
+const nwlDef = document.getElementById('nwlDef');
+const nwlNote = document.getElementById('nwlNote');
+const linksDiv = document.getElementById('links');
 
-/* ---------- Canvas confetti (lighter) ---------- */
-function fitCanvas(){ fx.width = innerWidth; fx.height = innerHeight }
-addEventListener('resize', fitCanvas); fitCanvas();
-function confettiBurst() {
-  const parts = Array.from({length: 60}, () => ({
-    x: innerWidth/2, y: innerHeight/5,
-    vx: (Math.random()-0.5)*5, vy: (Math.random()*-3)-1.5,
-    g: .12 + Math.random()*0.04,
-    r: 2 + Math.random()*2.5,
-    life: 45 + Math.random()*30
-  }));
-  (function anim(){
-    ctx.clearRect(0,0,fx.width,fx.height);
-    let alive = false;
-    for (const p of parts){
-      p.vy += p.g; p.x += p.vx; p.y += p.vy; p.life--;
-      if (p.life>0){ alive = true; ctx.globalAlpha = Math.max(0, p.life/80); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
-    }
-    if (alive) requestAnimationFrame(anim); else ctx.clearRect(0,0,fx.width,fx.height);
-  })();
-}
+const BLOCKLIST = new Set([
+  // add words you never want to show; keep this list as you see fit
+  "bhosdike", "motherfucker", "cunt", "fucker", "fuck"
+]);
 
-/* ---------- Net layer with timeout/abort ---------- */
-function jina(url){
-  return `https://r.jina.ai/http://${url.replace(/^https?:\/\//,'')}`;
-}
-async function fetchText(url, {timeout=6000, signal}={}){
-  const ctrl = new AbortController();
-  const timer = setTimeout(()=>ctrl.abort(new DOMException('Timeout','AbortError')), timeout);
-  const res = await fetch(jina(url), { cache: 'no-store', signal: ctrl.signal });
-  clearTimeout(timer);
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-  return res.text();
-}
+function jina(url){ return `https://r.jina.ai/http://${url.replace(/^https?:\/\//,'')}`; }
 
-/* ---------- Parsers (string heuristics) ---------- */
-function parseNWL(text, w){
-  const good = new RegExp(`\\b${w}\\b`, 'i').test(text) && /scrabble/i.test(text) && !/no results/i.test(text);
-  const bad = /no results/i.test(text) || /not a playable word/i.test(text);
-  return good ? 'ok' : (bad ? 'no' : 'maybe');
+async function fetchText(url, timeout=5000){
+  const controller = new AbortController();
+  const id = setTimeout(()=>controller.abort(), timeout);
+  try {
+    const res = await fetch(jina(url), { signal: controller.signal, cache: 'no-store' });
+    clearTimeout(id);
+    if (!res.ok) throw new Error('Fetch failed: '+res.status);
+    return await res.text();
+  } catch (e){
+    clearTimeout(id);
+    throw e;
+  }
 }
-function parseCSW(text, w){
-  if (/is a valid scrabble word/i.test(text)) return 'ok';
-  if (/is not a valid scrabble word/i.test(text)) return 'no';
-  const weakOk = new RegExp(`\\b${w}\\b`, 'i').test(text) && /scrabble/i.test(text);
-  return weakOk ? 'ok' : 'maybe';
-}
-
-/* ---------- Render helpers ---------- */
-function renderStatus(state, el, noteEl, tag, note=''){
-  if (state === 'ok'){ el.textContent = 'Playable ✓'; el.className='status ok'; noteEl.textContent = `${tag}: High confidence${note}`; }
-  else if (state === 'no'){ el.textContent = 'Not allowed ✕'; el.className='status no'; noteEl.textContent = `${tag}: High confidence${note}`; }
-  else { el.textContent = 'Unclear — check source'; el.className='status'; noteEl.textContent = `${tag}: Low confidence${note}`; }
-}
-
-/* ---------- Smart checker ---------- */
-let currentRun = 0;
 
 function sanitize(s){
-  const v = (s||"").trim();
-  if(!/^[a-zA-Z]+$/.test(v)) return null;
+  const v = (s||'').trim();
+  if (!/^[A-Za-z]{2,15}$/.test(v)) return null;
   return v.toLowerCase();
 }
 
-async function checkWord(word){
-  const w = sanitize(word);
+function extractCollinsDef(text){
+  // heuristic: find the first line after the "is a valid scrabble word" sentence that looks like a definition
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  const idx = lines.findIndex(l => /is a valid scrabble word/i.test(l));
+  if (idx >= 0){
+    for (let i = idx+1; i < Math.min(lines.length, idx+8); i++){
+      const L = lines[i];
+      if (L.length > 10 && L.split(' ').length < 30) return L.slice(0,180);
+    }
+  }
+  // fallback: try first short dictionary-ish line
+  const cand = lines.find(l => /^[a-z].{3,}/i.test(l) && l.split(' ').length <= 20);
+  return cand ? cand.slice(0,180) : '';
+}
 
-  links.innerHTML = '';
-  cswNote.textContent = '';
-  nwlNote.textContent = '';
+function extractMerriamDef(text){
+  const lines = text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  // find "definition" or short lines near top
+  const ix = lines.findIndex(l => /definition/i.test(l));
+  if (ix >= 0 && lines[ix+1]) return lines[ix+1].slice(0,180);
+  const cand = lines.find(l => /^[a-z].{3,}/i.test(l) && l.split(' ').length <= 20);
+  return cand ? cand.slice(0,180) : '';
+}
 
-  if(!w){
-    cswStatus.textContent = 'Letters A–Z only'; cswStatus.className='status no shake';
-    nwlStatus.textContent = ''; nwlStatus.className='status';
+function renderStatus(el, state, note=''){
+  el.className = 'status ' + (state==='ok' ? 'ok' : state==='no' ? 'no' : '');
+  el.textContent = state==='ok' ? 'Playable ✓' : state==='no' ? 'Not allowed ✕' : 'Unknown';
+  if (note) el.nextElementSibling && (el.nextElementSibling.textContent = note);
+}
+
+form.addEventListener('submit', async (ev)=>{
+  ev.preventDefault();
+  cswStatus.textContent = '…'; cswDef.textContent = '—'; cswNote.textContent = '';
+  nwlStatus.textContent = '…'; nwlDef.textContent = '—'; nwlNote.textContent = '';
+  linksDiv.innerHTML = '';
+
+  const raw = wIn.value;
+  const w = sanitize(raw);
+  if (!w) {
+    cswStatus.textContent = 'Letters A–Z only (2–15 chars)';
+    nwlStatus.textContent = '';
     return;
   }
-
-  // Cache hit?
-  const cached = getCached(w);
-  if (cached){
-    renderStatus(cached.csw, cswStatus, cswNote, 'CSW',' (cached)');
-    renderStatus(cached.nwl, nwlStatus, nwlNote, 'NWL',' (cached)');
-    if (cached.csw==='ok' || cached.nwl==='ok') confettiBurst();
+  if (BLOCKLIST.has(w)){
+    cswStatus.textContent = 'Blocked by policy';
+    nwlStatus.textContent = '';
     return;
   }
-
-  const run = ++currentRun;
-  cswStatus.textContent = 'Checking CSW…'; cswStatus.className='status blink';
-  nwlStatus.textContent = 'Checking NWL…'; nwlStatus.className='status blink';
 
   const srcCSW = `https://www.collinsdictionary.com/scrabble/scrabble-word-checker/${w}`;
   const srcNWL = `https://scrabble.merriam.com/finder/${w}`;
 
-  // Links to verify quickly
-  [srcCSW, srcNWL].forEach(u=>{
-    const a = document.createElement('a');
-    a.href = u; a.target = "_blank"; a.rel = "noopener";
-    a.textContent = u.includes('collins') ? `Open CSW source for "${w}"` : `Open NWL source for "${w}"`;
-    links.appendChild(a);
-  });
+  // show quick links
+  const a1 = document.createElement('a'); a1.href = srcCSW; a1.target='_blank'; a1.rel='noopener'; a1.textContent = `Open Collins for "${w}"`;
+  const a2 = document.createElement('a'); a2.href = srcNWL; a2.target='_blank'; a2.rel='noopener'; a2.textContent = `Open Merriam for "${w}"`;
+  linksDiv.appendChild(a1); linksDiv.appendChild(document.createTextNode(' — ')); linksDiv.appendChild(a2);
 
   try {
-    // CSW first (faster), short timeout
-    const cswText = await fetchText(srcCSW, { timeout: 5000 });
-    if (run !== currentRun) return; // another lookup started
-    const cswVerdict = parseCSW(cswText, w);
-    renderStatus(cswVerdict, cswStatus, cswNote, 'CSW');
-
-    // Fire NWL in the background
-    fetchText(srcNWL, { timeout: 7000 }).then(nwlText=>{
-      if (run !== currentRun) return;
-      const nwlVerdict = parseNWL(nwlText, w);
-      renderStatus(nwlVerdict, nwlStatus, nwlNote, 'NWL');
-      setCached(w, { csw: cswVerdict, nwl: nwlVerdict });
-      if (cswVerdict==='ok' || nwlVerdict==='ok') confettiBurst();
-    }).catch(e=>{
-      if (run !== currentRun) return;
-      nwlStatus.textContent = 'NWL check failed'; nwlStatus.className='status no';
-      nwlNote.textContent = e.message;
-      setCached(w, { csw: cswVerdict, nwl: 'maybe' });
-      if (cswVerdict==='ok') confettiBurst();
-    });
-
-  } catch(e){
-    if (run !== currentRun) return;
-    cswStatus.textContent='CSW check failed'; cswStatus.className='status no';
-    cswNote.textContent=e.message;
-    // Try NWL as fallback even if CSW failed
-    try{
-      const nwlText = await fetchText(srcNWL, { timeout: 7000 });
-      if (run !== currentRun) return;
-      const nwlVerdict = parseNWL(nwlText, w);
-      renderStatus(nwlVerdict, nwlStatus, nwlNote, 'NWL');
-      setCached(w, { csw: 'maybe', nwl: nwlVerdict });
-      if (nwlVerdict==='ok') confettiBurst();
-    } catch(e2){
-      nwlStatus.textContent='NWL check failed'; nwlStatus.className='status no';
-      nwlNote.textContent=e2.message;
+    // CSW first (fast). Only mark ok if exact phrase found.
+    const cswText = await fetchText(srcCSW, 5000);
+    const cswOk = /is a valid scrabble word/i.test(cswText);
+    if (cswOk){
+      renderStatus(cswStatus, 'ok', 'Collins explicitly confirms.');
+    } else if (/is not a valid scrabble word/i.test(cswText) || /not found/i.test(cswText) || /no results/i.test(cswText)){
+      renderStatus(cswStatus, 'no', 'Collins explicitly rejects.');
+    } else {
+      renderStatus(cswStatus, 'unknown', 'Collins did not explicitly confirm.');
     }
-  }
-}
+    const cdef = extractCollinsDef(cswText);
+    cswDef.textContent = cdef || 'No short Collins gloss found on page.';
 
-/* ---------- Events ---------- */
-formEl.addEventListener('submit', (e)=>{
-  e.preventDefault();
-  checkWord(wordEl.value);
+    // Merriam (NWL) only as info: if explicit "no results" -> not allowed; otherwise provide definition snippet if present.
+    try {
+      const nwlText = await fetchText(srcNWL, 6000);
+      const nwlNo = /no results/i.test(nwlText) || /not a playable word/i.test(nwlText);
+      if (nwlNo) renderStatus(nwlStatus, 'no', 'Merriam shows no results / rejects.');
+      else renderStatus(nwlStatus, 'unknown', 'Merriam did not explicitly confirm (info only).');
+
+      const mdef = extractMerriamDef(nwlText);
+      nwlDef.textContent = mdef || 'No short Merriam gloss found on page.';
+    } catch (me){
+      nwlStatus.textContent = 'Merriam fetch failed';
+      nwlNote.textContent = String(me).slice(0,120);
+    }
+
+  } catch (e){
+    cswStatus.textContent = 'Collins fetch failed';
+    cswNote.textContent = String(e).slice(0,120);
+  }
 });
-wordEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter') formEl.requestSubmit(); });
-wordEl.focus();
 </script>
 </body>
 </html>
