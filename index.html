@@ -4,6 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Somik’s Scrabble Word Panel</title>
+
+<!-- Warm up connections -->
+<link rel="preconnect" href="https://r.jina.ai" crossorigin>
+<link rel="dns-prefetch" href="//r.jina.ai">
+<link rel="dns-prefetch" href="//scrabble.merriam.com">
+<link rel="dns-prefetch" href="//www.collinsdictionary.com">
+
 <style>
   :root { --bg:#0f1226; --card:#181b3a; --ink:#eef0ff; --muted:#9aa0ff; --ok:#34c38f; --no:#ff6b6b; --line:#2a2f63; }
   * { box-sizing: border-box }
@@ -13,9 +20,9 @@
   h1 { margin:0 0 6px; font-size:clamp(24px,4vw,34px); letter-spacing:.3px }
   .sub { margin:0 0 18px; color:#c6caff }
   form { display:flex; gap:10px; flex-wrap:wrap }
-  input { flex:1 1 320px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:#0f1230; color:var(--ink); font-size:16px; outline:none }
+  input { flex:1 1 320px; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:#0f1230; color:#eef0ff; font-size:16px; outline:none }
   input::placeholder { color:#8b90d6 }
-  button { padding:14px 18px; border-radius:12px; border:1px solid var(--line); background:#2a2f63; color:var(--ink); font-weight:600; cursor:pointer }
+  button { padding:14px 18px; border-radius:12px; border:1px solid var(--line); background:#2a2f63; color:#eef0ff; font-weight:600; cursor:pointer }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px }
   .panel { border:1px dashed var(--line); border-radius:12px; padding:14px; min-height:92px; position:relative; overflow:hidden }
   .tag { position:absolute; top:8px; right:10px; font-size:12px; color:var(--muted) }
@@ -37,7 +44,7 @@
 <div class="wrap">
   <div class="card">
     <h1>Somik’s Scrabble Word Panel</h1>
-    <p class="sub">Type a word. I’ll check <b>NWL</b> and <b>CSW</b> live—no wordlist uploads.</p>
+    <p class="sub">Type a word. I’ll check <b>CSW</b> fast, confirm with <b>NWL</b> in the background—no wordlists.</p>
 
     <form id="form">
       <input id="word" type="text" placeholder="e.g., gapy, tod" maxlength="15" autocomplete="off" required />
@@ -45,26 +52,44 @@
     </form>
 
     <div class="grid">
-      <div class="panel" id="nwlBox">
-        <div class="tag">NWL (US/Canada)</div>
-        <div class="status" id="nwlStatus">Waiting…</div>
-        <div class="mini" id="nwlNote"></div>
-      </div>
       <div class="panel" id="cswBox">
-        <div class="tag">CSW (Collins, Intl)</div>
+        <div class="tag">CSW (Collins, Intl) — fast</div>
         <div class="status" id="cswStatus">Waiting…</div>
         <div class="mini" id="cswNote"></div>
+      </div>
+      <div class="panel" id="nwlBox">
+        <div class="tag">NWL (US/Canada) — confirm</div>
+        <div class="status" id="nwlStatus">Idle</div>
+        <div class="mini" id="nwlNote"></div>
       </div>
     </div>
 
     <div class="footer">
-      Heads-up: Official lists are licensed. This tool pings the public Merriam (NWL) and Collins (CSW) checkers through a read-only mirror to avoid CORS. Treat results as indicative, not gospel. If something looks off, open the source links below and double-check.
+      Heads-up: Official lists are licensed. This tool pings the public Collins (CSW) and Merriam (NWL) via a read-only mirror to avoid CORS. If something looks off, open the source links and double-check.
       <div class="links" id="links"></div>
     </div>
   </div>
 </div>
 
 <script>
+/* ---------- Perf helpers ---------- */
+const cacheKey = (w) => `verdict:v2:${w}`; // bump version to invalidate old caches
+const cacheTTLms = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+function getCached(w){
+  try {
+    const raw = localStorage.getItem(cacheKey(w));
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.t || (Date.now() - obj.t) > cacheTTLms) return null;
+    return obj;
+  } catch { return null; }
+}
+function setCached(w, data){
+  try { localStorage.setItem(cacheKey(w), JSON.stringify({ ...data, t: Date.now() })); } catch {}
+}
+
+/* ---------- UI elts ---------- */
 const wordEl = document.getElementById('word');
 const formEl = document.getElementById('form');
 const nwlStatus = document.getElementById('nwlStatus');
@@ -75,49 +100,42 @@ const links = document.getElementById('links');
 const fx = document.getElementById('fx');
 const ctx = fx.getContext('2d');
 
+/* ---------- Canvas confetti (lighter) ---------- */
 function fitCanvas(){ fx.width = innerWidth; fx.height = innerHeight }
 addEventListener('resize', fitCanvas); fitCanvas();
-
 function confettiBurst() {
-  const parts = Array.from({length: 120}, () => ({
+  const parts = Array.from({length: 60}, () => ({
     x: innerWidth/2, y: innerHeight/5,
-    vx: (Math.random()-0.5)*6, vy: (Math.random()*-4)-2,
-    g: .13 + Math.random()*0.05,
-    r: 2 + Math.random()*3,
-    life: 60 + Math.random()*40
+    vx: (Math.random()-0.5)*5, vy: (Math.random()*-3)-1.5,
+    g: .12 + Math.random()*0.04,
+    r: 2 + Math.random()*2.5,
+    life: 45 + Math.random()*30
   }));
-  let t = 0;
   (function anim(){
     ctx.clearRect(0,0,fx.width,fx.height);
-    parts.forEach(p=>{
+    let alive = false;
+    for (const p of parts){
       p.vy += p.g; p.x += p.vx; p.y += p.vy; p.life--;
-      ctx.globalAlpha = Math.max(0, p.life/100);
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
-    });
-    t++; if (parts.some(p=>p.life>0)) requestAnimationFrame(anim); else ctx.clearRect(0,0,fx.width,fx.height);
+      if (p.life>0){ alive = true; ctx.globalAlpha = Math.max(0, p.life/80); ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill(); }
+    }
+    if (alive) requestAnimationFrame(anim); else ctx.clearRect(0,0,fx.width,fx.height);
   })();
 }
 
-function sanitize(s){
-  const v = (s||"").trim();
-  if(!/^[a-zA-Z]+$/.test(v)) return null;
-  return v.toLowerCase();
+/* ---------- Net layer with timeout/abort ---------- */
+function jina(url){
+  return `https://r.jina.ai/http://${url.replace(/^https?:\/\//,'')}`;
+}
+async function fetchText(url, {timeout=6000, signal}={}){
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(new DOMException('Timeout','AbortError')), timeout);
+  const res = await fetch(jina(url), { cache: 'no-store', signal: ctrl.signal });
+  clearTimeout(timer);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  return res.text();
 }
 
-function makeLink(href, label){
-  const a = document.createElement('a');
-  a.href = href; a.target = "_blank"; a.rel = "noopener noreferrer";
-  a.textContent = label;
-  return a;
-}
-
-async function fetchText(url){
-  const mirror = `https://r.jina.ai/http://${url.replace(/^https?:\/\//,'')}`;
-  const res = await fetch(mirror, { cache: 'no-store' });
-  if(!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-  return await res.text();
-}
-
+/* ---------- Parsers (string heuristics) ---------- */
 function parseNWL(text, w){
   const good = new RegExp(`\\b${w}\\b`, 'i').test(text) && /scrabble/i.test(text) && !/no results/i.test(text);
   const bad = /no results/i.test(text) || /not a playable word/i.test(text);
@@ -130,50 +148,101 @@ function parseCSW(text, w){
   return weakOk ? 'ok' : 'maybe';
 }
 
+/* ---------- Render helpers ---------- */
+function renderStatus(state, el, noteEl, tag, note=''){
+  if (state === 'ok'){ el.textContent = 'Playable ✓'; el.className='status ok'; noteEl.textContent = `${tag}: High confidence${note}`; }
+  else if (state === 'no'){ el.textContent = 'Not allowed ✕'; el.className='status no'; noteEl.textContent = `${tag}: High confidence${note}`; }
+  else { el.textContent = 'Unclear — check source'; el.className='status'; noteEl.textContent = `${tag}: Low confidence${note}`; }
+}
+
+/* ---------- Smart checker ---------- */
+let currentRun = 0;
+
+function sanitize(s){
+  const v = (s||"").trim();
+  if(!/^[a-zA-Z]+$/.test(v)) return null;
+  return v.toLowerCase();
+}
+
 async function checkWord(word){
   const w = sanitize(word);
+
   links.innerHTML = '';
-  [nwlStatus, cswStatus].forEach(el => { el.textContent = 'Checking…'; el.className='status blink' });
-  [nwlNote, cswNote].forEach(el => el.textContent = '');
+  cswNote.textContent = '';
+  nwlNote.textContent = '';
 
   if(!w){
-    [nwlStatus, cswStatus].forEach(el => { el.textContent = 'Letters A–Z only.'; el.className='status no shake' });
+    cswStatus.textContent = 'Letters A–Z only'; cswStatus.className='status no shake';
+    nwlStatus.textContent = ''; nwlStatus.className='status';
     return;
   }
 
-  const srcNWL = `https://scrabble.merriam.com/finder/${w}`;
-  const srcCSW = `https://www.collinsdictionary.com/scrabble/scrabble-word-checker/${w}`;
+  // Cache hit?
+  const cached = getCached(w);
+  if (cached){
+    renderStatus(cached.csw, cswStatus, cswNote, 'CSW',' (cached)');
+    renderStatus(cached.nwl, nwlStatus, nwlNote, 'NWL',' (cached)');
+    if (cached.csw==='ok' || cached.nwl==='ok') confettiBurst();
+    return;
+  }
 
-  links.appendChild(makeLink(srcNWL, `Open NWL source for "${w}"`));
-  links.appendChild(makeLink(srcCSW, `Open CSW source for "${w}"`));
+  const run = ++currentRun;
+  cswStatus.textContent = 'Checking CSW…'; cswStatus.className='status blink';
+  nwlStatus.textContent = 'Checking NWL…'; nwlStatus.className='status blink';
+
+  const srcCSW = `https://www.collinsdictionary.com/scrabble/scrabble-word-checker/${w}`;
+  const srcNWL = `https://scrabble.merriam.com/finder/${w}`;
+
+  // Links to verify quickly
+  [srcCSW, srcNWL].forEach(u=>{
+    const a = document.createElement('a');
+    a.href = u; a.target = "_blank"; a.rel = "noopener";
+    a.textContent = u.includes('collins') ? `Open CSW source for "${w}"` : `Open NWL source for "${w}"`;
+    links.appendChild(a);
+  });
 
   try {
-    const [nwlText, cswText] = await Promise.all([
-      fetchText(srcNWL),
-      fetchText(srcCSW)
-    ]);
+    // CSW first (faster), short timeout
+    const cswText = await fetchText(srcCSW, { timeout: 5000 });
+    if (run !== currentRun) return; // another lookup started
+    const cswVerdict = parseCSW(cswText, w);
+    renderStatus(cswVerdict, cswStatus, cswNote, 'CSW');
 
-    const n = parseNWL(nwlText, w);
-    const c = parseCSW(cswText, w);
+    // Fire NWL in the background
+    fetchText(srcNWL, { timeout: 7000 }).then(nwlText=>{
+      if (run !== currentRun) return;
+      const nwlVerdict = parseNWL(nwlText, w);
+      renderStatus(nwlVerdict, nwlStatus, nwlNote, 'NWL');
+      setCached(w, { csw: cswVerdict, nwl: nwlVerdict });
+      if (cswVerdict==='ok' || nwlVerdict==='ok') confettiBurst();
+    }).catch(e=>{
+      if (run !== currentRun) return;
+      nwlStatus.textContent = 'NWL check failed'; nwlStatus.className='status no';
+      nwlNote.textContent = e.message;
+      setCached(w, { csw: cswVerdict, nwl: 'maybe' });
+      if (cswVerdict==='ok') confettiBurst();
+    });
 
-    renderStatus(n, nwlStatus, nwlNote, 'NWL');
-    renderStatus(c, cswStatus, cswNote, 'CSW');
-
-    if (n === 'ok' || c === 'ok') confettiBurst();
-
-  } catch (e){
-    nwlStatus.textContent = 'Could not reach sources.'; nwlStatus.className='status no shake';
-    cswStatus.textContent = 'Try again in a bit.'; cswStatus.className='status no';
-    nwlNote.textContent = e.message;
+  } catch(e){
+    if (run !== currentRun) return;
+    cswStatus.textContent='CSW check failed'; cswStatus.className='status no';
+    cswNote.textContent=e.message;
+    // Try NWL as fallback even if CSW failed
+    try{
+      const nwlText = await fetchText(srcNWL, { timeout: 7000 });
+      if (run !== currentRun) return;
+      const nwlVerdict = parseNWL(nwlText, w);
+      renderStatus(nwlVerdict, nwlStatus, nwlNote, 'NWL');
+      setCached(w, { csw: 'maybe', nwl: nwlVerdict });
+      if (nwlVerdict==='ok') confettiBurst();
+    } catch(e2){
+      nwlStatus.textContent='NWL check failed'; nwlStatus.className='status no';
+      nwlNote.textContent=e2.message;
+    }
   }
 }
 
-function renderStatus(state, el, noteEl, tag){
-  if (state === 'ok'){ el.textContent = 'Playable ✓'; el.className='status ok'; noteEl.textContent = `${tag}: High confidence`; }
-  else if (state === 'no'){ el.textContent = 'Not allowed ✕'; el.className='status no'; noteEl.textContent = `${tag}: High confidence`; }
-  else { el.textContent = 'Unclear — check source'; el.className='status'; noteEl.textContent = `${tag}: Low confidence`; }
-}
-
+/* ---------- Events ---------- */
 formEl.addEventListener('submit', (e)=>{
   e.preventDefault();
   checkWord(wordEl.value);
