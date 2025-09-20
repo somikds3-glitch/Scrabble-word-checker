@@ -46,9 +46,6 @@
       .hint { font-size: 0.9rem; opacity: 0.75; margin-top: 1rem; }
       .pill { font-size: 0.85rem; display: inline-block; padding: 0.35rem 0.6rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); opacity: 0.8; }
       .footer { margin-top: 1.2rem; font-size: 0.85rem; opacity: 0.7; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; }
-      @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
-      .btn-secondary { display: inline-block; text-decoration: none; color: #e6e9f4; border: 1px solid rgba(255,255,255,0.25); border-radius: calc(var(--radius) - 8px); padding: 0.6rem 0.9rem; }
     </style>
   </head>
   <body>
@@ -62,12 +59,6 @@
         <a class="cta" href="https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker" target="_blank" rel="noopener">Open in ChatGPT</a>
       </p>
 
-      <div class="grid">
-        <!-- Optional: a soft redirect for folks who want auto-jump -->
-        <a class="btn-secondary" href="https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker" target="_blank" rel="noopener">Direct link</a>
-        <a class="btn-secondary" href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">View this site’s code</a>
-      </div>
-
       <p class="hint">Note: embedding ChatGPT pages in an <code>&lt;iframe&gt;</code> is typically blocked for security. Linking out keeps the browser happy.</p>
       <div class="footer">Built with GitHub Pages · © <span id="year"></span> Somik</div>
     </main>
@@ -77,15 +68,3 @@
     </script>
   </body>
 </html>
-
-<!--
-Add a second file named launch.html with this content to auto-redirect:
-
-<!doctype html>
-<meta charset="utf-8">
-<title>Launching Somik’s Scrabble Checker…</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<p style="font:16px system-ui, -apple-system, Segoe UI, Roboto">Launching… If nothing happens, <a href="https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker">click here</a>.</p>
-<script>location.href = 'https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker';</script>
-
--->
