@@ -1,217 +1,91 @@
-// ==UserScript==
-// @name         Somik’s Scrabble Panel (No-Key)
-// @namespace    somik.scrabble.panel
-// @version      1.0
-// @description  Check Scrabble legality via Collins + show short meanings (Collins & Merriam). No API keys. One word at a time.
-// @match        *://*/*
-// @grant        none
-// ==/UserScript==
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Somik’s Scrabble Checker</title>
 
-(function(){
-  const HOTKEY = {altKey:true, key:'s'}; // Alt+S to open prompt
+    <!-- Social preview -->
+    <meta property="og:title" content="Somik’s Scrabble Checker" />
+    <meta property="og:description" content="Launch the custom GPT for quick Scrabble word checks." />
+    <meta property="og:type" content="website" />
 
-  // -------- UI --------
-  function panel(){
-    let el = document.getElementById('somik-scrabble-panel');
-    if (el) { el.remove(); }
-    el = document.createElement('div');
-    el.id = 'somik-scrabble-panel';
-    el.innerHTML = `
-      <style>
-        #somik-scrabble-panel{position:fixed;right:16px;bottom:16px;z-index:999999;
-          background:#16182d;color:#eef0ff;border:1px solid #2a2f63;border-radius:12px;
-          width:min(420px,90vw);box-shadow:0 8px 22px rgba(0,0,0,.45);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-        #somik-scrabble-panel .hd{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #2a2f63}
-        #somik-scrabble-panel .hd b{font-size:14px}
-        #somik-scrabble-panel button{background:#2a2f63;border:1px solid #2a2f63;color:#eef0ff;border-radius:8px;padding:6px 10px;cursor:pointer}
-        #somik-scrabble-panel .bd{padding:10px 12px;font-size:14px}
-        #somik-scrabble-panel .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-        #somik-scrabble-panel .box{border:1px dashed #2a2f63;border-radius:8px;padding:8px;min-height:88px;position:relative}
-        #somik-scrabble-panel .tag{position:absolute;right:8px;top:6px;font-size:11px;color:#9aa0ff}
-        #somik-scrabble-panel .status{margin-top:2px;font-weight:600}
-        #somik-scrabble-panel .ok{color:#34c38f} .no{color:#ff6b6b}
-        #somik-scrabble-panel .def{margin-top:6px;color:#d7dbff;line-height:1.35}
-        #somik-scrabble-panel .mini{margin-top:6px;color:#9aa0ff;font-size:12px}
-        #somik-scrabble-panel a{color:#cfd3ff}
-        #somik-scrabble-panel input{width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid #2a2f63;background:#0e1130;color:#eef0ff}
-      </style>
-      <div class="hd">
-        <b>Somik’s Scrabble Word Panel (No-Key)</b>
-        <div>
-          <button id="ssp-close" title="Close">✕</button>
-        </div>
+    <!-- If you have a logo.png in the repo, uncomment the next line -->
+    <!-- <link rel="icon" href="/logo.png" /> -->
+
+    <style>
+      :root { --radius: 18px; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(1000px 600px at 80% -10%, #eef2ff, transparent),
+                    radial-gradient(800px 600px at -10% 120%, #fce7f3, transparent),
+                    #0b1020;
+        color: #e6e9f4; display: grid; place-items: center; padding: 2rem;
+      }
+      .card {
+        width: min(720px, 95vw); background: rgba(255,255,255,0.06);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: var(--radius);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        padding: 2rem 2.25rem; text-align: center;
+      }
+      h1 { font-weight: 800; letter-spacing: 0.4px; font-size: clamp(1.6rem, 0.9rem + 2.2vw, 2.4rem); margin: 0 0 0.75rem; }
+      p { margin: 0.25rem 0 1.25rem; opacity: 0.9; }
+      .cta {
+        display: inline-flex; align-items: center; gap: 0.6rem;
+        border-radius: calc(var(--radius) - 6px);
+        border: 1px solid rgba(255,255,255,0.25);
+        background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+        padding: 0.9rem 1.2rem; font-weight: 700; font-size: 1rem; color: #0b1020;
+        text-decoration: none; transition: transform 120ms ease, box-shadow 120ms ease;
+        box-shadow: inset 0 0 0 999px #e3e8ff;
+      }
+      .cta:hover { transform: translateY(-1px); box-shadow: inset 0 0 0 999px #ffffff; }
+      .hint { font-size: 0.9rem; opacity: 0.75; margin-top: 1rem; }
+      .pill { font-size: 0.85rem; display: inline-block; padding: 0.35rem 0.6rem; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); opacity: 0.8; }
+      .footer { margin-top: 1.2rem; font-size: 0.85rem; opacity: 0.7; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; }
+      @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+      .btn-secondary { display: inline-block; text-decoration: none; color: #e6e9f4; border: 1px solid rgba(255,255,255,0.25); border-radius: calc(var(--radius) - 8px); padding: 0.6rem 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="pill">🔤 Scrabble Helper</div>
+      <h1>Somik’s Scrabble Checker</h1>
+      <p>Launch the custom GPT to verify words, check scores, and keep your tiles honest.</p>
+
+      <!-- Primary call-to-action: opens your GPT in a new tab -->
+      <p>
+        <a class="cta" href="https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker" target="_blank" rel="noopener">Open in ChatGPT</a>
+      </p>
+
+      <div class="grid">
+        <!-- Optional: a soft redirect for folks who want auto-jump -->
+        <a class="btn-secondary" href="./launch.html">Auto-redirect version</a>
+        <a class="btn-secondary" href="https://github.com/USERNAME/REPO" target="_blank" rel="noopener">View this site’s code</a>
       </div>
-      <div class="bd">
-        <div>Enter word (A–Z, 2–15):</div>
-        <input id="ssp-input" placeholder="e.g., quiz, za, gapy, tod"/>
-        <div class="row" style="margin-top:8px">
-          <div class="box">
-            <div class="tag">CSW Legality (Collins)</div>
-            <div id="ssp-csw" class="status">—</div>
-            <div id="ssp-csw-note" class="mini"></div>
-          </div>
-          <div class="box">
-            <div class="tag">NWL Info (Merriam)</div>
-            <div id="ssp-nwl" class="status">—</div>
-            <div id="ssp-nwl-note" class="mini"></div>
-          </div>
-        </div>
-        <div class="row" style="margin-top:8px">
-          <div class="box">
-            <div class="tag">Meaning (Collins)</div>
-            <div id="ssp-collins-def" class="def">—</div>
-            <div class="mini"><a id="ssp-collins-link" target="_blank" rel="noopener"></a></div>
-          </div>
-          <div class="box">
-            <div class="tag">Meaning (Merriam-Webster)</div>
-            <div id="ssp-mw-def" class="def">—</div>
-            <div class="mini"><a id="ssp-mw-link" target="_blank" rel="noopener"></a></div>
-          </div>
-        </div>
-        <div class="mini" id="ssp-links" style="margin-top:6px"></div>
-      </div>
-    `;
-    document.body.appendChild(el);
-    el.querySelector('#ssp-close').onclick = ()=> el.remove();
-    const input = el.querySelector('#ssp-input');
-    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') run(input.value.trim()); });
-    setTimeout(()=> input.focus(), 60);
-  }
 
-  // -------- Net helpers --------
-  const jina = (url)=> `https://r.jina.ai/http/${url.replace(/^https?:\/\//,'')}`;
-  async function fetchText(url, timeout=9000){
-    const ctl = new AbortController();
-    const t = setTimeout(()=>ctl.abort(), timeout);
-    try{
-      const r = await fetch(jina(url), { signal: ctl.signal, cache:'no-store' });
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return await r.text();
-    } finally { clearTimeout(t); }
-  }
+      <p class="hint">Note: embedding ChatGPT pages in an <code>&lt;iframe&gt;</code> is typically blocked for security. Linking out keeps the browser happy.</p>
+      <div class="footer">Built with GitHub Pages · © <span id="year"></span> Somik</div>
+    </main>
 
-  // -------- Parsing --------
-  const sanitize = (s)=> /^[A-Za-z]{2,15}$/.test(s||'') ? s.toLowerCase() : null;
-  const norm = (t)=> (t||'').replace(/\s+/g,' ').toLowerCase();
-  const escRe = (s)=> s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>
 
-  function parseCollinsCSW(text, w){
-    const T = norm(text), W = escRe(w);
-    const ok = new RegExp(`\\b${W}\\b[^\\.!?]{0,80}(?:is|’s|is\\s+a)\\s+(?:a\\s+)?valid\\s+scrabble\\s+word`).test(T);
-    const no = new RegExp(`\\b${W}\\b[^\\.!?]{0,80}(?:is\\s+not|isn['’]t|not)\\s+(?:a\\s+)?valid\\s+scrabble\\s+word`).test(T)
-           || /\bno results\b|\bnot found\b|\bno definitions found\b/.test(T);
-    return ok ? 'ok' : (no ? 'no' : 'unknown');
-  }
+<!--
+Add a second file named launch.html with this content to auto-redirect:
 
-  function firstCleanLine(lines, from=0, span=12){
-    for(let i=from;i<Math.min(lines.length,from+span);i++){
-      const L = lines[i].trim();
-      if(!L) continue;
-      if(/^(see also|word forms|examples?|scrabble|copyright)/i.test(L)) continue;
-      if(/[a-z]/i.test(L) && L.split(' ').length>=2 && L.length<=180) return L;
-    }
-    return '';
-  }
-  function extractCollinsDef(t){
-    const lines = t.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-    let i = lines.findIndex(l=>/meaning|definition|is a valid scrabble word/i.test(l));
-    if(i>=0){ const s = firstCleanLine(lines,i+1,10); if(s) return s; }
-    return firstCleanLine(lines,0,25) || '';
-  }
-  function extractMWDef(t){
-    const lines = t.split(/\n+/).map(s=>s.trim()).filter(Boolean);
-    let i = lines.findIndex(l=>/^definition of\b/i.test(l));
-    if(i>=0){ const s = firstCleanLine(lines,i+1,12); if(s) return s; }
-    i = lines.findIndex(l=>/^(noun|verb|adjective|adverb|interjection|preposition|pronoun)\b/i.test(l));
-    if(i>=0){ const s = firstCleanLine(lines,i+1,10); if(s) return s; }
-    return firstCleanLine(lines,0,25) || '';
-  }
+<!doctype html>
+<meta charset="utf-8">
+<title>Launching Somik’s Scrabble Checker…</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<p style="font:16px system-ui, -apple-system, Segoe UI, Roboto">Launching… If nothing happens, <a href="https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker">click here</a>.</p>
+<script>location.href = 'https://chatgpt.com/g/g-68ce126f88f88191aad7952cd8b6cea0-somiks-scrabble-checker';</script>
 
-  // -------- Run check --------
-  async function run(raw){
-    const csw = document.getElementById('ssp-csw');
-    const cswNote = document.getElementById('ssp-csw-note');
-    const nwl = document.getElementById('ssp-nwl');
-    const nwlNote = document.getElementById('ssp-nwl-note');
-    const cDef = document.getElementById('ssp-collins-def');
-    const cLink = document.getElementById('ssp-collins-link');
-    const mDef = document.getElementById('ssp-mw-def');
-    const mLink = document.getElementById('ssp-mw-link');
-    const links = document.getElementById('ssp-links');
-
-    csw.textContent = 'Checking Collins…'; csw.className='status';
-    cswNote.textContent = '';
-    nwl.textContent = 'Checking Merriam…'; nwl.className='status';
-    nwlNote.textContent = '';
-    cDef.textContent = mDef.textContent = '—';
-    cLink.textContent = mLink.textContent = ''; cLink.removeAttribute('href'); mLink.removeAttribute('href');
-    links.textContent = '';
-
-    const w = sanitize(raw);
-    if(!w){ csw.textContent='Letters A–Z only (2–15).'; nwl.textContent=''; return; }
-
-    const uCSW = `https://www.collinsdictionary.com/scrabble/scrabble-word-checker/${w}`;
-    const uCollins = `https://www.collinsdictionary.com/dictionary/english/${w}`;
-    const uMW = `https://www.merriam-webster.com/dictionary/${w}`;
-    const uNWL = `https://scrabble.merriam.com/finder/${w}`;
-
-    // Legality (strict: Collins only)
-    try{
-      const t = await fetchText(uCSW, 9000);
-      const v = parseCollinsCSW(t, w);
-      csw.className = 'status ' + (v==='ok'?'ok':v==='no'?'no':'');
-      csw.textContent = v==='ok'?'Playable ✓':v==='no'?'Not allowed ✕':'Unknown';
-      cswNote.textContent = v==='ok' ? 'High confidence — Collins explicitly confirms.'
-                         : v==='no' ? 'High confidence — Collins explicitly rejects.'
-                         : 'Collins did not explicitly confirm.';
-    }catch(err){
-      csw.textContent = 'Collins check failed';
-      cswNote.textContent = (err && err.name==='AbortError') ? 'Timed out.' : String(err).slice(0,140);
-    }
-
-    // Meanings
-    try{
-      const t2 = await fetchText(uCollins, 9000);
-      const d = extractCollinsDef(t2);
-      cDef.textContent = d || 'No short snippet found. Open source.';
-      cLink.href = uCollins; cLink.textContent = `Open Collins dictionary for “${w}”`;
-    }catch{
-      cDef.textContent = 'Could not fetch Collins dictionary page.';
-      cLink.href = uCollins; cLink.textContent = `Try Collins dictionary for “${w}”`;
-    }
-
-    try{
-      const t3 = await fetchText(uMW, 9000);
-      const d = extractMWDef(t3);
-      mDef.textContent = d || 'No short snippet found. Open source.';
-      mLink.href = uMW; mLink.textContent = `Open Merriam-Webster for “${w}”`;
-    }catch{
-      mDef.textContent = 'Could not fetch Merriam-Webster page.';
-      mLink.href = uMW; mLink.textContent = `Try Merriam-Webster for “${w}”`;
-    }
-
-    // NWL info-only (can say "no" if explicit)
-    try{
-      const t4 = await fetchText(uNWL, 9000);
-      const T4 = (t4||'').replace(/\s+/g,' ').toLowerCase();
-      const no = /\bno results\b|\bnot a playable word\b/.test(T4);
-      nwl.className = 'status ' + (no?'no':'');
-      nwl.textContent = no ? 'Not allowed ✕' : 'Unknown';
-      nwlNote.textContent = no ? 'Merriam shows no results / not playable.' : 'Merriam finder does not explicitly confirm.';
-    }catch(err){
-      nwl.textContent = 'Merriam check failed';
-      nwlNote.textContent = (err && err.name==='AbortError') ? 'Timed out.' : String(err).slice(0,140);
-    }
-
-    // quick source links in footer
-    links.innerHTML = `<a href="${uCSW}" target="_blank" rel="noopener">Collins Scrabble</a> · <a href="${uCollins}" target="_blank" rel="noopener">Collins Dict</a> · <a href="${uMW}" target="_blank" rel="noopener">Merriam Dict</a>`;
-  }
-
-  // Hotkey to open panel
-  window.addEventListener('keydown', (e)=>{
-    if (e.altKey===HOTKEY.altKey && e.key.toLowerCase()===HOTKEY.key) {
-      e.preventDefault();
-      panel();
-    }
-  });
-})();
+-->
